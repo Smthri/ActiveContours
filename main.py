@@ -3,23 +3,24 @@ import utils
 import numpy as np
 import skimage.io as skio
 import skimage
-from skvideo.io import vwrite
-from scipy.ndimage import gaussian_filter
+from skimage.transform import resize
 from numpy.linalg import inv, eig
 from tqdm import tqdm
-import skvideo
+from skimage.filters import sobel, gaussian
+from scipy.interpolate import RectBivariateSpline
+from scipy.ndimage import convolve1d
 
 def Eext(img, w_line, w_edge):
-    G = gaussian_filter(img, 1)
-    Pline = img
-    grad = np.gradient(img)
-    Pedge = (grad[0] ** 2 + grad[1] ** 2)
+    G = gaussian(img, 3)
+    Pline = G
+    #grad = np.gradient(img)
+    Pedge = sobel(G)
 
     return w_line*Pline + w_edge*Pedge
 
 def calc_iou(result, gt):
-    img_result = np.array(skimage.img_as_float32(skio.imread(result, as_gray = True))).astype(np.uint8)
     img_gt = np.array(skimage.img_as_float32(skio.imread(gt, as_gray = True))).astype(np.uint8)
+    img_result = np.array(skimage.img_as_float32(skio.imread(result, as_gray = True))).astype(np.uint8)
 
     intersection = img_result * img_gt
     union = img_result + img_gt
@@ -45,17 +46,20 @@ if __name__ == '__main__':
     output_image, alpha, beta, \
     tau, w_line, w_edge, kappa = tuple(sys.argv[1:10])
 
-    image = np.array(skimage.img_as_float64(skio.imread(input_image)))
+    image = skimage.img_as_float(skio.imread(input_image))
 
-    X = np.clip(np.array([np.array(x.replace('\n', '').split(' ')) for x in open(initial_snake)]).astype(np.float32).astype(np.int32), 0, max(image.shape) - 1)
+    X = np.array([np.array(x.replace('\n', '').split(' ')) for x in open(initial_snake)]).astype(np.float64)
 
     P = Eext(image, float(w_line), float(w_edge))
     grad = np.gradient(P)
     #norm = np.sqrt(grad[0] ** 2 + grad[1] ** 2)
     k = 1
-    Fextx = -k * grad[1]
-    Fexty = -k * grad[0] # 0 is y axis, 1 is x axis
-    
+    #Fextx = -k * grad[1]
+    #Fexty = -k * grad[0] # 0 is y axis, 1 is x axis
+
+    Fextx = -k*convolve1d(P, [1, -1], axis=1)
+    Fexty = -k*convolve1d(P, [1, -1], axis=0)
+
     print(f'Max and min P: {np.max(P)}, {np.min(P)}')
     print(f'Max and min gradient: x: ({np.max(Fextx), np.min(Fextx)}), y: {np.max(Fexty), np.min(Fexty)}')
 
@@ -63,20 +67,34 @@ if __name__ == '__main__':
     a = float(alpha)
     b = float(beta)
     t = float(tau)
+    
     line = [b, -a - 4*b, 2*a + 6*b, -a - 4*b, b]
     for i, l in enumerate(A):
         np.put(l, [i - 2, i - 1, i, i + 1, i + 2], line, mode = 'wrap')
-        A[i, :] *= t
-        A[i, i] += 1
     print(f'Max and min of matrix A: {np.max(A)}, {np.min(A)}')
-    A = inv(A)
+    '''
+    a = np.roll(np.eye(len(X)), -1, axis = 0) + np.roll(np.eye(len(X)), -1, axis = 1) - 2*np.eye(len(X))
+    b = np.roll(np.eye(len(X)), -2, axis = 0) + np.roll(np.eye(len(X)), -2, axis = 1) - 4*np.roll(np.eye(len(X)), -1, axis = 0) -\
+        np.roll(np.eye(len(X)), -1, axis = 1) + 6*np.eye(len(X))
+    A = -alpha*a + beta*b
+    '''
+    A = inv(A + t*np.eye(len(X)))
 
-    for iteration in tqdm(range(40)):
-        fx = Fextx[X[:, 0], X[:, 1]]
-        fy = Fexty[X[:, 0], X[:, 1]]
+    for iteration in tqdm(range(500)):
+        x = np.around(X[:, 0]).astype(np.int32)
+        y = np.around(X[:, 1]).astype(np.int32)
 
-        f = np.array([[fx[i], fy[i]] for i in range(0, len(fx))])
-        X = np.int32(np.matmul(A, X + t*f))
+        fx = Fextx[x, y]
+        fy = Fexty[x, y]
+
+        #fx = intp(X[:, 0], X[:, 1], dx=1, grid=False)
+        #fy = intp(X[:, 0], X[:, 1], dy=1, grid=False)
+
+        f = np.array([[fx[i], fy[i]] for i in range(0, len(fx))], dtype = np.float64)
+        X = np.matmul(A, t*X + f)
+
+        #dx = 3 * np.tanh(dX[:, 0])
+        #dy = 3 * np.tanh(dX[:, 1])
         
         '''
         output = open(output_image, "w")
@@ -85,8 +103,10 @@ if __name__ == '__main__':
         output.close()
         '''
 
-        utils.save_mask(f'result/test_{iteration}.png', X, np.uint8(image * 255))
+        #utils.save_mask(f'result/test_{iteration}.png', X, np.uint8(image * 255))
 
-    utils.save_mask(output_image, X, np.uint8(image * 255))
-    calc_iou(output_image, 'images/astranaut_mask.png')
+    X = X.astype(np.int32)
+    utils.save_mask_withimg(output_image, X, np.uint8(image * 255))
+    utils.save_mask('genmask.png', X, np.uint8(image * 255))
+    calc_iou('genmask.png', 'images/astranaut_mask.png')
 
