@@ -18,11 +18,11 @@ def Eext(img, w_line, w_edge):
 
     return w_line*Pline + w_edge*Pedge
 
-def active_contours(image, X, alpha, beta, tau, w_line, w_edge, bf, max_iters):
+def active_contours(image, X, alpha, beta, tau, w_line, w_edge, bf):
     
     P = Eext(img_as_float(image), float(w_line), float(w_edge))
 
-    intp = RectBivariateSpline(np.arange(P.shape[0]), np.arange(P.shape[1]), P, kx=2, ky=2, s=0)
+    intp = RectBivariateSpline(np.arange(P.shape[1]), np.arange(P.shape[0]), P.T, kx=2, ky=2, s=0)
 
     A = np.zeros(shape = (X.shape[0], X.shape[0]), dtype = np.float64)
     a = float(alpha)
@@ -32,6 +32,10 @@ def active_contours(image, X, alpha, beta, tau, w_line, w_edge, bf, max_iters):
     line = [b, -a - 4*b, 2*a + 6*b, -a - 4*b, b]
     for i, l in enumerate(A):
         np.put(l, [i - 2, i - 1, i, i + 1, i + 2], line, mode = 'wrap')
+        if i < 2:
+            A[i, -3:] = list(A[i, -2:]) + [0]
+        elif i >= len(A) - 2:
+            A[i, :3] = [0] + list(A[i, :2])
 
     '''
     a = np.roll(np.eye(len(X)), -1, axis = 0) + np.roll(np.eye(len(X)), -1, axis = 1) - 2*np.eye(len(X))
@@ -49,7 +53,7 @@ def active_contours(image, X, alpha, beta, tau, w_line, w_edge, bf, max_iters):
     y = X[:, 1]
 
 
-    for iteration in tqdm(range(max_iters)):
+    for iteration in tqdm(range(2500)):
         #fx = Fextx[xn, yn]
         #fy = Fexty[xn, yn]
 
@@ -67,13 +71,13 @@ def active_contours(image, X, alpha, beta, tau, w_line, w_edge, bf, max_iters):
         xn = np.matmul(A, t*x + fx)
         yn = np.matmul(A, t*y + fy)
 
-        dx = x - xn
-        dx /= norm(dx)
-        x = xn + dx
+        #dx = x - xn
+        #dx /= norm(dx)
+        x = xn
 
-        dy = y - yn
-        dy /= norm(dy)
-        y = yn + dy
+        #dy = y - yn
+        #dy /= norm(dy)
+        y = yn
 
         j = iteration % (convergence_order + 1)
         if j < convergence_order:
@@ -96,7 +100,7 @@ def active_contours(image, X, alpha, beta, tau, w_line, w_edge, bf, max_iters):
         
         X[:, 0] = x
         X[:, 1] = y
-        utils.save_mask_withimg(f'result/test_{iteration}.png', X, np.uint8(image * 255))
+        #utils.save_mask_withimg(f'result/test_{iteration}.png', X, np.uint8(image * 255))
 
     X[:, 0] = x
     X[:, 1] = y

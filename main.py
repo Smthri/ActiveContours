@@ -40,13 +40,13 @@ if __name__ == '__main__':
 
     input_image, initial_snake, \
     output_image, alpha, beta, \
-    tau, w_line, w_edge, kappa, iters = tuple(sys.argv[1:11])
+    tau, w_line, w_edge, kappa = tuple(sys.argv[1:10])
 
     image = skimage.img_as_float(skio.imread(input_image))
 
     X = np.array([np.array(x.replace('\n', '').split(' ')) for x in open(initial_snake)]).astype(np.float64)
 
-    C = active_contours(image, X, alpha, beta, tau, w_line, w_edge, kappa, int(iters))
+    C = active_contours(image, X, alpha, beta, tau, w_line, w_edge, kappa)
 
     utils.save_mask_withimg('result.png', C, np.uint8(image * 255))
     utils.save_mask('genmask.png', C, np.uint8(image * 255))
