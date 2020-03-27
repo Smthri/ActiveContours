@@ -46,7 +46,9 @@ if __name__ == '__main__':
 
     X = np.array([np.array(x.replace('\n', '').split(' ')) for x in open(initial_snake)]).astype(np.float64)
 
-    C = active_contours(image, X, alpha, beta, tau, w_line, w_edge, kappa)
+    C = active_contours(image, X[:-1], alpha, beta, tau, w_line, w_edge, kappa)
+    #print(C)
+    C = np.append(C, [C[0]], axis = 0)
 
     utils.save_mask_withimg('result.png', C, np.uint8(image * 255))
     utils.save_mask('genmask.png', C, np.uint8(image * 255))
