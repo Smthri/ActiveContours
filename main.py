@@ -3,15 +3,7 @@ import utils
 import numpy as np
 import skimage.io as skio
 import skimage
-from skimage.transform import resize
-from numpy.linalg import inv, norm
-from tqdm import tqdm
-from skimage.filters import sobel, gaussian
-from scipy.interpolate import RectBivariateSpline
-from scipy.ndimage import convolve1d
 from ac import *
-#from their_code import *
-from skimage.segmentation import active_contour
 
 def calc_iou(result, gt):
     img_gt = np.array(skimage.img_as_float32(skio.imread(gt, as_gray = True))).astype(np.uint8)
@@ -47,10 +39,9 @@ if __name__ == '__main__':
     X = np.array([np.array(x.replace('\n', '').split(' ')) for x in open(initial_snake)]).astype(np.float64)
 
     C = active_contours(image, X[:-1], alpha, beta, tau, w_line, w_edge, kappa)
-    #print(C)
     C = np.append(C, [C[0]], axis = 0)
 
-    utils.save_mask_withimg('result.png', C, np.uint8(image * 255))
+    #utils.save_mask_withimg('result.png', C, np.uint8(image * 255))
     utils.save_mask('genmask.png', C, np.uint8(image * 255))
     iou = calc_iou('genmask.png', input_image.replace('.png', '_mask.png'))
     print(iou)

@@ -16,18 +16,11 @@ def Eext(img, w_line, w_edge):
 
 def calc_normals(X, bf):
     kappa = float(bf)
-    N = np.empty((0, 2), dtype=np.float64)
-
-    for it in range(len(X)):
-        A = X[it-1]
-        B = X[0]
-        if it < len(X) - 1:
-            B = X[it+1]
-        dx = A[0] - B[0]
-        dy = A[1] - B[1]
-        N = np.append(N, [[-dx, dy]], axis=0)
-
+    N = (np.roll(X, 2, axis=0) - X)[:, ::-1]
+    N[:, 0] *= -1
+    N /= norm(N, axis=1)[:, None]
     return kappa * N
+
 
 def active_contours(image, X, alpha, beta, tau, w_line, w_edge, bf):
     
@@ -57,21 +50,9 @@ def active_contours(image, X, alpha, beta, tau, w_line, w_edge, bf):
         Fx = interpolator(x, y, dx=1, grid=False)
         Fy = interpolator(x, y, dy=1, grid=False)
 
-        '''
-        nx = norm(Fx)
-        ny = norm(Fy)
-
-        if not nx == 0:
-            Fx /= nx
-            Fx /= t
-        if not ny == 0:
-            Fy /= ny
-            Fy /= t
-            '''
- 
-        #N = calc_normals(np.stack((x, y), axis=1), bf)
-        #Fx = -N[:, 0] + Fx
-        #Fy = -N[:, 1] + Fy
+        N = calc_normals(X, bf)
+        Fx += N[:, 0]
+        Fy += N[:, 1]
 
         x = np.matmul(A, x + t*Fx)
         y = np.matmul(A, y + t*Fy)
@@ -87,4 +68,4 @@ def active_contours(image, X, alpha, beta, tau, w_line, w_edge, bf):
 
     X[:, 0] = x
     X[:, 1] = y
-    return X.astype(np.int32)
+    return np.around(X).astype(np.int32)
