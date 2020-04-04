@@ -42,8 +42,8 @@ if __name__ == '__main__':
     C = np.append(C, [C[0]], axis = 0)
 
     #utils.save_mask_withimg('result.png', C, np.uint8(image * 255))
-    utils.save_mask('genmask.png', C, np.uint8(image * 255))
-    iou = calc_iou('genmask.png', input_image.replace('.png', '_mask.png'))
+    utils.save_mask(output_image, C, np.uint8(image * 255))
+    iou = calc_iou(output_image, input_image.replace('.png', '_mask.png'))
     print(iou)
 
 
